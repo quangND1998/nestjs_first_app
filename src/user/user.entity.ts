@@ -4,6 +4,7 @@ import * as argon2 from 'argon2'
 import { ArticleEntity } from '../article/article.entity';
 import { ArticleRO } from "src/article/article.interface";
 import { UserRO } from "./user.dto";
+import { Comment } from "src/article/comment.entity";
 
 @Entity('user')
 export class UserEntity {
@@ -49,4 +50,7 @@ export class UserEntity {
 
     @OneToMany(type => ArticleEntity, article => article.author)
     articles: ArticleEntity[];
+
+    @OneToMany(type => Comment, comment => comment.user)
+    comments: Comment[];
 }

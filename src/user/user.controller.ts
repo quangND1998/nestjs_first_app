@@ -21,19 +21,19 @@ export class UserController {
 
     @Get('user')
     async findMe(@User('email') email: string): Promise<UserRO> {
-       
+
         return await this.userService.findByEmail(email);
     }
     @Get('list')
     async getAll(): Promise<UserEntity[]> {
-        
+
         return await this.userService.findAll();
     }
 
 
     @Put('user')
     async update(@User('id') userId: number, @Body() userData: UpdateUserDto) {
-       
+
         return await this.userService.update(userId, userData);
     }
 
@@ -45,7 +45,7 @@ export class UserController {
 
     @Delete('users/:slug')
     async delete(@Param() params) {
-        
+
         return await this.userService.delete(params.slug);
     }
 

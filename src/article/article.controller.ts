@@ -58,25 +58,26 @@ export class ArticleController {
     @ApiResponse({ status: 201, description: 'The article has been successfully updated.' })
     @ApiResponse({ status: 403, description: 'Forbidden.' })
     @Put(':slug')
-    async update(@Param() params, @Body('article') articleData: CreateArticleDto) {
+    async update(@User('id') userId: number, @Param() params, @Body() articleData: CreateArticleDto) {
         // Todo: update slug also when title gets changed
-        return this.articleService.update(params.slug, articleData);
+        return this.articleService.update(userId, params.slug, articleData);
     }
 
     @ApiOperation({ summary: 'Delete article' })
     @ApiResponse({ status: 201, description: 'The article has been successfully deleted.' })
     @ApiResponse({ status: 403, description: 'Forbidden.' })
     @Delete(':slug')
-    async delete(@Param() params) {
-        return this.articleService.delete(params.slug);
+    async delete(@User('id') userId: number, @Param() params) {
+
+        return this.articleService.delete(userId, params.slug);
     }
 
     @ApiOperation({ summary: 'Create comment' })
     @ApiResponse({ status: 201, description: 'The comment has been successfully created.' })
     @ApiResponse({ status: 403, description: 'Forbidden.' })
     @Post(':slug/comments')
-    async createComment(@Param('slug') slug, @Body('comment') commentData: CreateCommentDto) {
-        return await this.articleService.addComment(slug, commentData);
+    async createComment(@User('id') userId: number, @Param('slug') slug, @Body() commentData: CreateCommentDto) {
+        return await this.articleService.addComment(userId, slug, commentData);
     }
 
     @ApiOperation({ summary: 'Delete comment' })
@@ -93,7 +94,7 @@ export class ArticleController {
     @ApiResponse({ status: 403, description: 'Forbidden.' })
     @Post(':slug/favorite')
     async favorite(@User('id') userId: number, @Param('slug') slug) {
-       
+
         return await this.articleService.favorite(userId, slug);
     }
 

@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, getRepository, DeleteResult } from 'typeorm';
 import { UserEntity } from 'src/user/user.entity';
@@ -28,17 +28,27 @@ export class ArticleService {
         }
         return responseObject;
     }
+    private commentResponseObject(comment: Comment) {
+        const responseObject: any = comment;
+        if (comment.user) {
+            responseObject.user = comment.user.toResponseObject();
+        }
+        return responseObject;
+    }
+    private ensureOwnership(article: ArticleEntity, userId: number) {
+        if (article.author.id !== userId) {
+            throw new HttpException('Incorrect user', HttpStatus.UNAUTHORIZED)
+        }
+
+    }
 
 
     async findAll(query): Promise<ArticlesRO> {
         const qb = await this.articleRepository
             .createQueryBuilder('article')
             .leftJoinAndSelect('article.author', 'author')
-            .leftJoinAndSelect('article.users', 'user')
-        
-
-
-
+            .leftJoinAndSelect('article.comments', 'comment')
+            .leftJoinAndSelect('comment.user', 'user')
         if ('tag' in query) {
             qb.andWhere("article.tagList LIKE :tag", { tag: `%${query.tag}%` });
         }
@@ -67,7 +77,7 @@ export class ArticleService {
         }
 
         const articles = await qb.getMany();
-        // const new_articles = articles.map(article => this.toResponseObject(article));
+        const new_articles = articles.map(article => this.toResponseObject(article));
 
         return { articles, articlesCount };
     }
@@ -105,16 +115,21 @@ export class ArticleService {
         return { article };
     }
 
-    async addComment(slug: string, commentData): Promise<ArticleRO> {
-        let article = await this.articleRepository.findOneBy({ slug });
-
+    async addComment(id: number, slug: string, commentData): Promise<ArticleRO> {
+        let article = await this.articleRepository.findOne({ where: { slug }, relations: ['comments.user'] });
+        const author = await this.userRepository.findOne({ where: { id: id }, relations: ['comments'] });
+        if (!article) {
+            throw new HttpException('Not Found', HttpStatus.NOT_FOUND);
+        }
+        const user = await this.userRepository.findOneBy({ id });
         const comment = new Comment();
         comment.body = commentData.body;
-
         article.comments.push(comment);
-
         await this.commentRepository.save(comment);
         article = await this.articleRepository.save(article);
+        author.comments.push(comment);
+        await this.userRepository.save(author);
+
         return { article }
     }
 
@@ -136,7 +151,10 @@ export class ArticleService {
     }
 
     async favorite(id: number, slug: string): Promise<ArticleRO> {
-        let article = await this.articleRepository.findOne({ where: { slug }});
+        let article = await this.articleRepository.findOne({ where: { slug } });
+        if (!article) {
+            throw new HttpException('Not Found Article', HttpStatus.NOT_FOUND);
+        }
 
         const user = await this.userRepository.findOne({ where: { id }, relations: ['favorites'] });
         const isNewFavorite = user.favorites.findIndex(_article => _article.id === article.id) < 0;
@@ -155,7 +173,10 @@ export class ArticleService {
     async unFavorite(id: number, slug: string): Promise<ArticleRO> {
         let article = await this.articleRepository.findOne({ where: { slug } });
         const user = await this.userRepository.findOne({ where: { id }, relations: ['favorites'] });
-     
+
+        if (!article) {
+            throw new HttpException('Not Found Article', HttpStatus.NOT_FOUND);
+        }
         const deleteIndex = user.favorites.findIndex(_article => _article.id === article.id);
 
         if (deleteIndex >= 0) {
@@ -170,9 +191,10 @@ export class ArticleService {
         return { article };
     }
 
-    async findComments(slug: string): Promise<CommentsRO> {
-        const article = await this.articleRepository.findOneBy({ slug });
-        return { comments: article.comments };
+    async findComments(slug: string) {
+        const article = await this.articleRepository.findOne({ where: { slug }, relations: ['comments.user'] });
+        const new_comment = article.comments.map(comment => this.commentResponseObject(comment));
+        return { comments: new_comment };
     }
 
     async create(userId: number, articleData: CreateArticleDto): Promise<ArticleEntity> {
@@ -196,14 +218,23 @@ export class ArticleService {
 
     }
 
-    async update(slug: string, articleData: any): Promise<ArticleRO> {
-        let toUpdate = await this.articleRepository.findOneBy({ slug: slug });
+    async update(userId:number ,slug: string, articleData: any): Promise<ArticleRO> {
+        let toUpdate = await this.articleRepository.findOne({ where: { slug }, relations: ['author'] });
+        if (!toUpdate) {
+            throw new HttpException('Not Found', HttpStatus.NOT_FOUND);
+        }
+        this.ensureOwnership(toUpdate, userId);
         let updated = Object.assign(toUpdate, articleData);
         const article = await this.articleRepository.save(updated);
         return { article };
     }
 
-    async delete(slug: string): Promise<DeleteResult> {
+    async delete(userId: number, slug: string): Promise<DeleteResult> {
+        let article = await this.articleRepository.findOne({ where: { slug }, relations: ['author'] });
+        if (!article) {
+            throw new HttpException('Not Found', HttpStatus.NOT_FOUND);
+        }
+        this.ensureOwnership(article, userId);
         return await this.articleRepository.delete({ slug: slug });
     }
 

@@ -1,3 +1,4 @@
+import { UserEntity } from 'src/user/user.entity';
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne } from 'typeorm';
 import { ArticleEntity } from './article.entity';
 
@@ -12,4 +13,9 @@ export class Comment {
 
     @ManyToOne(type => ArticleEntity, article => article.comments)
     article: ArticleEntity;
+
+    @ManyToOne(() => UserEntity, user => user.comments)
+    user: UserEntity;
+
+
 }

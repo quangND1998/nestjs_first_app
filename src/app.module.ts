@@ -19,7 +19,8 @@ import { TagModule } from './tag/tag.module';
       "synchronize": true,
       "logging": true
     }
-  ), UserModule, ArticleModule, TagModule],
+  ), UserModule, ArticleModule, ProfileModule,
+    TagModule],
   controllers: [AppController],
   providers: [AppService],
 })
